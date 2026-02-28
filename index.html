@@ -502,6 +502,10 @@ body.dashboard .card{
 <label>Tile/Card:
   <input type="color" id="cardColorPicker">
 </label>
+<br>
+<button onclick="resetTileColor()" style="margin-top:6px;">
+  Reset Tile Color
+</button>
 <br><br>
 
 <label>Tile Image:
@@ -2085,6 +2089,16 @@ function clearCardImage(){
     c.classList.remove("has-image");
   });
   localStorage.removeItem("card_img");
+}
+
+function resetTileColor(){
+  localStorage.removeItem("color_card");
+
+  const defaultColor = "#ffffff"; // your original default
+  document.documentElement.style.setProperty("--card", defaultColor);
+
+  const picker = document.getElementById("cardColorPicker");
+  if(picker) picker.value = defaultColor;
 }
 </script>
 
