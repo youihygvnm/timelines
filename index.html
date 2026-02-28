@@ -419,9 +419,24 @@ body.dashboard .card{
 
 #colorPanel{
   position:fixed;
-  right:-260px;
+  right:20px;
   bottom:80px;
-  transition:0.3s;
+  width:260px;
+  background:var(--card);
+  padding:16px;
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+
+  transform:translateY(20px);
+  opacity:0;
+  pointer-events:none;
+  transition:all .25s ease;
+}
+
+#colorPanel.open{
+  transform:translateY(0);
+  opacity:1;
+  pointer-events:auto;
 }
 
 #colorPanel.open{
@@ -469,7 +484,9 @@ body.dashboard .card{
 <header>
 
 <!-- Floating side panel for colors -->
-<button id="colorToggle">🎨</button>
+<button id="colorToggle" style="z-index:9999; position:fixed; right:20px; bottom:20px;">
+  🎨
+</button>
 <div id="colorPanel">
   <h3>Colors</h3>
 <div class="panel-handle">≡</div>
@@ -1873,12 +1890,7 @@ cardImagePicker.onchange = e => {
   localStorage.setItem("card_img", url);
 };
 
-function clearCardImage(){
-  document.querySelectorAll(".card").forEach(c=>{
-    c.style.backgroundImage = "";
-  });
-  localStorage.removeItem("card_img");
-}
+
 // load saved colors
 const savedBg = localStorage.getItem("color_bg");
 const savedCard = localStorage.getItem("color_card");
@@ -1902,19 +1914,12 @@ bgPicker.oninput = () => {
 
 // change tile/card color
 cardPicker.oninput = () => {
-
-
-// remove tile image
-function clearCardImage(){
-  document.querySelectorAll(".card").forEach(c=>{
-    c.style.backgroundImage = "";
-  });
-  localStorage.removeItem("card_img");
-}
   const val = cardPicker.value;
   document.documentElement.style.setProperty("--card", val);
   localStorage.setItem("color_card", val);
 };
+
+
 /* ---------- FOCUS MIRROR ---------- */
 let mirrorVisible = true;
 
@@ -2071,6 +2076,16 @@ toggleBtn.onclick = () => {
   panel.classList.toggle("open");
 };
 
+
+/* ===== PUT FUNCTION HERE ===== */
+
+function clearCardImage(){
+  document.querySelectorAll(".card").forEach(c=>{
+    c.style.backgroundImage = "";
+    c.classList.remove("has-image");
+  });
+  localStorage.removeItem("card_img");
+}
 </script>
 
 
