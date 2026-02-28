@@ -1,0 +1,2079 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Timeline Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+/* ===== VIDEO BACKGROUND ===== */
+#videoBgWrapper{
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#videoBg{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: var(--video-opacity, 1);
+  filter: blur(var(--video-blur, 0px));
+}
+
+/* when video bg is active, remove image bg */
+body.video-bg{
+  background-image: none !important;
+  background-color: #000;
+}
+
+
+.panel-dragging {
+  transition: none !important;
+}
+
+.panel-handle{
+  position:absolute;
+  top:6px;
+  right:8px;
+  cursor:grab;
+  font-size:16px;
+  opacity:0.5;
+}
+
+.panel-handle:active{
+  cursor:grabbing;
+}
+
+#musicPanel{
+
+  position: fixed;
+  top: 260px;
+  right: -180px;
+  width: 200px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  transition: right 0.3s;
+  z-index: 1000;
+}
+
+
+
+body.custom-bg{
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+#mirrorFrame {
+  width: 100%;
+  height: 360px;
+  border: none;
+  border-radius: 12px;
+  resize: both;       /* allows manual resize */
+  overflow: auto;     /* needed for resize */
+}
+
+#heatmap{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap:6px;
+}
+
+.day-box{
+  aspect-ratio:1;
+  border-radius:6px;
+  background:#1f2933;
+}
+
+.day-segment:hover::after{
+  content: attr(data-tip);
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+
+
+#dayBar{
+  position:relative;
+  height:18px;
+  border-radius:10px;
+  background:#e5e5e5;
+  overflow:visible; /* 🔥 allow tooltip */
+}
+
+
+body.dark #dayBar{
+  background:#333;
+}
+
+#dayAxis{
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+  user-select: none;
+}
+
+#dayAxis span{
+  position: relative;
+  text-align: center;
+}
+
+#dayAxis span::before{
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 6px;
+  background: #666;
+}
+
+
+.day-segment{
+  position:absolute;
+  top:0;
+  height:100%;
+  cursor:pointer;
+  border-radius:10px;
+}
+
+.day-left-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.day-left-text {
+  margin-top: 10px;
+  font-size: 0.95rem;
+  opacity: 0.85;
+  text-align: center;
+}
+
+
+
+#colorPanel {
+  position: fixed;
+  top: 100px;
+  right: -180px; /* hidden slightly offscreen */
+  width: 200px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  transition: right 0.3s;
+  font-size: 14px;
+  z-index: 1000;
+}
+
+
+#colorPanel input[type="text"] {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 14px;
+  margin-top: 4px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+:root{
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --study:#00c2a8;
+  --waste:#ff7a7a;
+  --text:#333;
+  --muted:#777;
+}
+
+body.dark{
+  --bg:#121212;
+  --card:#1e1e1e;
+  --text:#ddd;
+  --muted:#999;
+}
+
+body{
+  margin:0;
+  font-family:system-ui, sans-serif;
+  background-color: var(--bg); /* 🔥 IMPORTANT */
+  color:var(--text);
+}
+
+
+header{
+  padding:20px;
+  color:white;
+  background:linear-gradient(135deg,var(--waste),var(--study));
+}
+header.black{
+  background:#000 !important;
+}
+
+.container{
+  max-width:520px;
+  margin:auto;
+  padding:16px;
+}
+
+
+.card{
+  background:var(--card);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 10px 20px rgba(0,0,0,.05);
+background-size: cover;
+background-position: center;
+}
+
+button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  font-size:16px;
+  cursor:pointer;
+  margin-bottom:10px;
+}
+
+.toggle{
+  background:#ddd;
+}
+body.dark .toggle{
+  background:#333;
+  color:#ddd;
+}
+
+.activity.study{
+  background:#eef0ff;
+  border-left:6px solid var(--study);
+  color:var(--study);
+}
+.activity.timewaste{
+  background:#ffdede;
+  border-left:6px solid var(--waste);
+  color:var(--waste);
+}
+
+.stop{
+  background:#ff4d4d;
+  color:white;
+}
+
+.entry{
+  background:#fafafa;
+  border-left:5px solid;
+  padding:10px;
+  border-radius:8px;
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+body.dark .entry{
+  background:#2a2a2a;
+}
+
+.entry.study{border-color:var(--study);}
+.entry.timewaste{border-color:var(--waste);}
+
+.entry-buttons button{
+  background:none;
+  border:none;
+  font-weight:600;
+  cursor:pointer;
+}
+.entry-buttons .delete{
+  color:var(--waste);
+}
+
+.stat{
+  font-size:14px;
+  color:var(--muted);
+}
+
+input[type="date"]{
+  width:100%;
+  padding:8px;
+  font-size:16px;
+  margin-bottom:10px;
+}
+/* ---------- ZEN MODE ---------- */
+body.zen header,
+body.zen .container,
+body.zen .card,
+body.zen #musicPanel,
+body.zen #colorPanel {
+  display: none !important;
+}
+
+/* ============================
+   DASHBOARD (HORIZONTAL) MODE
+============================ */
+
+body.dashboard .container{
+  max-width: 1200px;
+}
+
+/* Grid layout */
+body.dashboard .dashboard-grid{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* Make some cards span full width */
+body.dashboard .card.full{
+  grid-column: 1 / -1;
+}
+
+/* Timeline wider */
+body.dashboard #timeline{
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* Analytics area side-by-side */
+body.dashboard #pieChart,
+body.dashboard #dayLeftChartCanvas{
+  max-width: 100%;
+}
+
+/* Heatmap tighter */
+body.dashboard #heatmap{
+  grid-template-columns: repeat(10, 1fr);
+}
+
+/* Reduce vertical padding for dense view */
+body.dashboard .card{
+  padding: 12px;
+}
+
+/* Mobile fallback */
+@media (max-width: 900px){
+  body.dashboard .dashboard-grid{
+    grid-template-columns: 1fr;
+  }
+}
+/* Compact pie charts (reference-style) */
+.chart-row{
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 12px;
+}
+
+.chart-box{
+  width: 180px;        /* 🔥 controls size */
+  height: auto;
+}
+
+.chart-box canvas{
+  width: 180px !important;
+  height: 180px !important;
+}
+.chart-box canvas{
+  width: 180px !important;
+  height: 180px !important;
+}
+
+/* ⭐ PASTE HERE */
+#colorToggle{
+  position:fixed;
+  right:20px;
+  bottom:20px;
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  border:none;
+  background:#333;
+  color:#fff;
+  font-size:20px;
+  cursor:pointer;
+  z-index:1000;
+  box-shadow:0 6px 15px rgba(0,0,0,0.3);
+}
+
+#colorPanel{
+  position:fixed;
+  right:-260px;
+  bottom:80px;
+  transition:0.3s;
+}
+
+#colorPanel.open{
+  right:20px;
+}
+</style>
+</style>
+</head>
+
+<body>
+
+<!-- VIDEO BACKGROUND -->
+<div id="videoBgWrapper">
+  <video
+    id="videoBg"
+    loop
+    playsinline
+  ></video>
+</div>
+
+<div id="musicPanel" class="card">
+
+<label style="font-size:12px;color:var(--muted)">Volume</label>
+<input
+  type="range"
+  id="musicVolume"
+  min="0"
+  max="1"
+  step="0.01"
+  value="0.5">
+
+  <h3>Music</h3>
+<div class="panel-handle">≡</div>
+  <input type="file" id="musicInput" accept="audio/*">
+  <audio id="musicPlayer" controls></audio>
+<button onclick="resetPanel('musicPanel','music_panel_pos')" style="margin-top:6px;">
+  Reset position
+</button>
+</div>
+<audio id="alarmSound" preload="auto"></audio>
+
+
+
+
+<header>
+
+<!-- Floating side panel for colors -->
+<button id="colorToggle">🎨</button>
+<div id="colorPanel">
+  <h3>Colors</h3>
+<div class="panel-handle">≡</div>
+  <label>Study (Peace): <input type="text" id="studyColor" value="#00c2a8" placeholder="#0096FF"></label><br><br>
+  <label>Time Waste (Stress): <input type="text" id="timeWasteColor" value="#ff7a7a" placeholder="#FF0000"></label>
+
+<br><br>
+
+<label>Background:
+  <input type="color" id="bgColorPicker">
+</label><br><br>
+
+<label>Tile/Card:
+  <input type="color" id="cardColorPicker">
+</label>
+<br><br>
+
+<label>Tile Image:
+  <input type="file" id="cardImagePicker" accept="image/*">
+</label>
+
+<button onclick="clearCardImage()" style="margin-top:6px;">
+  Remove Tile Image
+</button>
+<button onclick="resetPanel('colorPanel','color_panel_pos')">
+  Reset position
+</button>
+</div>
+
+  <h1>Timeline Tracker</h1>
+<button
+  class="toggle"
+  style="width:auto;margin-top:10px;"
+  onclick="toggleZenMode()">
+  Zen Mode
+</button>
+
+<button
+  class="toggle"
+  style="width:auto;margin-left:10px;"
+  onclick="toggleLayout()">
+  Dashboard View
+</button>
+
+</header>
+
+<div class="container dashboard-grid">
+
+<!-- DAILY GOAL PROGRESS -->
+<div class="card full">
+  <h2>Daily Goal</h2>
+  <div id="dailyProgress" style="position:relative; height:30px; background:#eee; border-radius:15px; overflow:hidden;">
+    <div id="progressFill" style="height:100%; width:0%; background:linear-gradient(90deg,#00c2a8,#00a0ff);"></div>
+    <div id="progressLabel" style="position:absolute; width:100%; text-align:center; top:0; left:0; line-height:30px; font-weight:bold; color:#333;"></div>
+  </div>
+  <div class="stat" style="margin-top:5px; font-size:12px;">Goal: 10+ hours = 99th percentile</div>
+</div>
+
+
+<!-- LEFT COLUMN -->
+<div class="sidebar">
+
+
+
+<div class="card">
+  <h2>Questions Solved</h2>
+  <input type="number" id="qsInput" placeholder="e.g. 20">
+  <button onclick="saveQuestions()">Save</button>
+</div>
+
+
+<!-- SETTINGS -->
+
+
+
+<div class="card">
+<hr>
+
+<h4>Live Video Background</h4>
+
+<input type="file" id="videoBgUpload" accept="video/*">
+
+<label class="stat">
+  Volume
+  <input type="range" id="videoBgVolume" min="0" max="1" step="0.01" value="0">
+</label>
+
+<label class="stat">
+  Opacity
+  <input type="range" id="videoBgOpacity" min="0" max="1" step="0.05" value="1">
+</label>
+
+<label class="stat">
+  Blur
+  <input type="range" id="videoBgBlur" min="0" max="20" step="1" value="0">
+</label>
+
+<button class="toggle" onclick="clearVideoBackground()">Remove Video Background</button>
+
+<input type="file" id="bgUpload" accept="image/*">
+<button class="toggle" onclick="snoozeAlarm()">Snooze 3 min</button>
+<button class="toggle" onclick="clearBackground()">Remove Background</button>
+  <input type="date" id="datePicker">
+  <button id="darkToggle" class="toggle">Toggle Dark Mode</button>
+  <button id="headerToggle" class="toggle">Toggle Black Header</button>
+  <button id="exportBtn" class="toggle">Export Data</button>
+  <button id="importBtn" class="toggle">Import Data</button>
+  <input type="file" id="importFile" accept=".json" style="display:none">
+</div>
+
+
+<!-- ACTIVITIES -->
+<div class="card">
+  <h2>Activities</h2>
+  <div id="controls"></div>
+<div id="breakCountdown" class="stat"></div>
+<div id="studyMilestoneDisplay" class="stat"></div>
+
+  <button id="editCurrentBtn" class="toggle">
+    Edit Running Start Time
+  </button>
+</div>
+
+</div> <!-- end sidebar -->
+
+<!-- RIGHT COLUMN -->
+<div class="main">
+
+<!-- TIMELINE -->
+<div class="card full">
+  <h2 style="display:flex;justify-content:space-between;align-items:center;">
+    Timeline
+    <button id="timelineToggle" class="toggle" style="width:auto;padding:6px 10px;font-size:14px;">
+      Minimize
+    </button>
+  </h2>
+  <div id="timeline"></div>
+</div>
+<!-- FOCUS MIRROR -->
+<div class="card full">
+  <h2 style="display:flex;justify-content:space-between;align-items:center;">
+    Focus Mirror
+   <div style="display:flex;gap:6px;">
+  <button class="toggle" style="width:auto;padding:6px 10px;" onclick="toggleMirror()">Hide</button>
+  <button class="toggle" style="width:auto;padding:6px 10px;" onclick="fullscreenMirror()">⛶</button>
+</div>
+
+  </h2>
+
+  <input
+    type="text"
+    id="mirrorUrl"
+    placeholder="Paste website / embed URL (e.g. YouTube embed)"
+    style="width:100%;padding:8px;margin-bottom:10px;"
+  >
+
+<iframe
+  id="mirrorFrame"
+  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+  allowfullscreen
+  style="width:600px;height:360px;resize:both;overflow:auto;max-width:100%;">
+</iframe>
+
+
+
+</div>
+<div id="mirrorResizer" style="width:100%; height:10px; cursor:ns-resize; background:#ccc; border-radius:5px; margin-top:4px;"></div>
+
+
+<div class="card">
+  <h2>Day Overview</h2>
+
+  <h3>Study Activity</h3>
+  <div id="heatmap"></div>
+
+
+</div>
+
+  <div id="dayBar"></div>
+<div id="dayAxis"></div>
+<div style="display:flex;gap:6px;margin-top:8px;">
+  <button onclick="setZoom(0,24)">Full</button>
+  <button onclick="setZoom(6,12)">6–12</button>
+  <button onclick="setZoom(12,18)">12–6</button>
+  <button onclick="setZoom(18,24)">6–12</button>
+</div>
+</div>
+
+
+
+<!-- ANALYTICS -->
+
+<div class="card full">
+  <h2>Analytics</h2>
+
+  <button id="viewToggle" class="toggle">Weekly View</button>
+
+  <div id="stats"></div>
+
+<div class="chart-row">
+  <div class="chart-box">
+    <canvas id="pieChart"></canvas>
+  </div>
+
+  <div class="chart-box day-left-box">
+    <canvas id="dayLeftChartCanvas"></canvas>
+
+    <div id="dayLeftInfo" class="day-left-text">
+      —
+    </div>
+  </div>
+</div>
+
+</div>
+
+
+
+<script>
+
+function toggleLayout(){
+  document.body.classList.toggle("dashboard");
+}
+
+function updateDayLeftChart(){
+  const nowReal = Date.now();
+  const dayStart = new Date(selectedDate + "T00:00:00").getTime();
+  const dayEnd   = dayStart + 24 * 3600000;
+
+  // clamp now inside the selected day
+  const now = Math.min(Math.max(nowReal, dayStart), dayEnd);
+
+  let tracked = 0;
+
+  load().forEach(e => {
+    if(e.date !== selectedDate) return;
+    tracked += (e.end - e.start);
+  });
+
+  if(current && current.date === selectedDate){
+    tracked += (now - current.start);
+  }
+
+  const passed = Math.max(0, now - dayStart);
+  const used   = Math.min(tracked, passed);
+  const lost   = Math.max(0, passed - used);
+  const left   = Math.max(0, dayEnd - now);
+
+  // update pie (minutes)
+  dayLeftChart.data.datasets[0].data = [
+    Math.floor(used / 60000),
+    Math.floor(left / 60000),
+    Math.floor(lost / 60000)
+  ];
+  dayLeftChart.update();
+
+  // % day left + countdown
+  const percentLeft = ((left / (24 * 3600000)) * 100).toFixed(1);
+
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor((left % 3600000) / 60000);
+  const s = Math.floor((left % 60000) / 1000);
+
+  const info = document.getElementById("dayLeftInfo");
+  if(info){
+    info.textContent =
+      `⏳ ${percentLeft}% of day left — ${h}h ${m}m ${s}s to midnight`;
+  }
+}
+
+
+
+
+function applyStudyBackground(){
+  const bg = localStorage.getItem("custom_bg");
+  if(bg){
+    document.body.style.backgroundImage = `url(${bg})`;
+    document.body.classList.add("custom-bg");
+  }
+}
+
+function removeStudyBackground(){
+  document.body.style.backgroundImage = "";
+  document.body.classList.remove("custom-bg");
+}
+
+let zenMode = false;
+
+document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "z") {
+    zenMode = !zenMode;
+    toggleZenMode(zenMode);
+  }
+});
+
+function toggleZenMode(enable) {
+  const uiElements = document.querySelectorAll(
+    ".timeline, .activities, .stats, .music-card, .color-card, .mirror, .panel"
+  );
+
+  uiElements.forEach(el => {
+    el.style.display = enable ? "none" : "";
+  });
+}
+
+
+function toggleZenMode(){
+  document.body.classList.toggle("zen");
+}
+
+function resetPanel(id, storageKey){
+  const el = document.getElementById(id);
+  if(!el) return;
+
+  localStorage.removeItem(storageKey);
+
+  el.style.left = "";
+  el.style.top = "";
+  el.style.right = "-180px";   // restore hover-based position
+  el.classList.remove("panel-dragging"); // 🔥 re-enable hover
+}
+
+
+
+const musicInput = document.getElementById("musicInput");
+const musicPlayer = document.getElementById("musicPlayer");
+const musicVolume = document.getElementById("musicVolume");
+
+// apply slider → audio volume
+musicVolume.oninput = () => {
+  musicPlayer.volume = musicVolume.value;
+};
+
+// set default volume on load
+musicPlayer.volume = musicVolume.value;
+
+
+musicInput.onchange = () => {
+  const file = musicInput.files[0];
+  if(!file) return;
+
+  if (!isStudyRunning()) {
+    alert("🎧 Start Study first to play music.");
+    musicInput.value = "";
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  musicPlayer.src = url;
+  musicPlayer.play();
+};
+
+function isStudyRunning(){
+  return current && current.activity === "study";
+}
+
+musicPlayer.addEventListener("play", () => {
+  if (!isStudyRunning()) {
+    musicPlayer.pause();
+    alert("🎧 Music is locked. Start Study to unlock.");
+  }
+});
+
+function toggleSection(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+
+function playAlarm(src){
+  const audio = document.getElementById("alarmSound");
+  audio.src = src;
+  audio.volume = 1.0;
+  audio.loop = true;
+  audio.currentTime = 0;
+  audio.play().catch(()=>{});
+
+  // 🔥 auto snooze after 30s
+  setTimeout(() => {
+    if (!audio.paused) snoozeAlarm();
+  }, 30000);
+}
+
+function snoozeAlarm(minutes = 3){
+  stopAlarm();
+
+  snoozeAt = Date.now() + minutes * 60 * 1000;
+  localStorage.setItem("snoozeAt", snoozeAt);
+
+  scheduleSnooze();
+}
+
+
+
+function stopAlarm(){
+  const audio = document.getElementById("alarmSound");
+  audio.pause();
+  audio.currentTime = 0;
+  audio.loop = false;
+}
+
+
+function scheduleSnooze(){
+  if(snoozeTimer) clearTimeout(snoozeTimer);
+
+  const saved = localStorage.getItem("snoozeAt");
+  if(!saved) return;
+
+  const delay = saved - Date.now();
+  if(delay <= 0){
+    playAlarm("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+    return;
+  }
+
+  snoozeTimer = setTimeout(() => {
+    playAlarm("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+  }, delay);
+}
+
+function migrateOldEntries(){
+  const entries = load();
+  let changed = false;
+
+  entries.forEach(e=>{
+    if(!e.id){
+      e.id = crypto.randomUUID();
+      changed = true;
+    }
+  });
+
+  if(changed){
+    save(entries);
+    console.log("Old entries migrated with IDs");
+  }
+}
+
+function updateStudyMilestoneDisplay(){
+  const el = document.getElementById("studyMilestoneDisplay");
+  if(!el) return;
+
+  if(!current || current.activity !== "study"){
+    el.textContent = "";
+    return;
+  }
+
+  const elapsed = Date.now() - current.start;
+  const target = 2 * 60 * 60 * 1000;
+
+  if(elapsed >= target){
+    el.textContent = "🎯 Study milestone: 2h completed";
+  }else{
+    const left = target - elapsed;
+    const h = Math.floor((elapsed) / 3600000);
+    const m = Math.floor((elapsed % 3600000) / 60000);
+    el.textContent = `Study milestone: ${h}h ${m}m / 2h`;
+  }
+}
+
+function loadSavedColors(){
+  const study = localStorage.getItem("color_study");
+  const waste = localStorage.getItem("color_timewaste");
+
+  if(study) document.documentElement.style.setProperty("--study", study);
+  if(waste) document.documentElement.style.setProperty("--waste", waste);
+}
+
+function setZoom(start, end){
+  zoomStartHour = start;
+  zoomEndHour = end;
+  renderDayBar();
+  renderDayAxis();
+}
+function fullscreenMirror(){
+  const frame = document.getElementById("mirrorFrame");
+  if(!frame) return;
+
+  if(frame.requestFullscreen){
+    frame.requestFullscreen();
+  } else if(frame.webkitRequestFullscreen){
+    frame.webkitRequestFullscreen();
+  }
+}
+
+
+
+function renderDayAxis(){
+  const axis = document.getElementById("dayAxis");
+  if(!axis) return;
+
+  axis.innerHTML = "";
+
+  const labels = [
+    "12 AM","3 AM","6 AM","9 AM",
+    "12 PM","3 PM","6 PM","9 PM","12 AM"
+  ];
+
+  labels.forEach(t=>{
+    const span = document.createElement("span");
+    span.textContent = t;
+    axis.appendChild(span);
+  });
+}
+function heatColor(h){
+  if(h === 0) return "#1f2933";
+  if(h < 1) return "#164e63";
+  if(h < 2) return "#0f766e";
+  if(h < 4) return "#22c55e";
+  return "#4ade80";
+}
+
+function renderHeatmap(){
+  const el = document.getElementById("heatmap");
+  if(!el) return;
+  el.innerHTML = "";
+
+  const stats = loadStats();
+  const base = new Date(selectedDate);
+  base.setDate(1);
+
+  for(let i=0;i<31;i++){
+    const d = new Date(base);
+    d.setDate(i+1);
+    if(d.getMonth() !== base.getMonth()) break;
+
+    const key = d.toISOString().slice(0,10);
+    const hours = stats[key]?.hours || 0;
+
+    const box = document.createElement("div");
+    box.className = "day-box";
+    box.style.background = heatColor(hours);
+    const qs = stats[key]?.questions || 0;
+box.title = `${key}\nStudy: ${hours}h\nQuestions: ${qs}`;
+
+
+    el.appendChild(box);
+  }
+}
+
+
+function renderDayBar(){
+  const bar = document.getElementById("dayBar");
+  if(!bar) return;
+
+  bar.innerHTML = "";
+
+  const entries = load().filter(e => e.date === selectedDate);
+
+const dayBase = new Date(selectedDate + "T00:00:00").getTime();
+const dayStart = dayBase + zoomStartHour * 3600000;
+const dayEnd   = dayBase + zoomEndHour   * 3600000;
+
+
+  entries.forEach(e=>{
+    const start = Math.max(e.start, dayStart);
+    const end = Math.min(e.end, dayEnd);
+    if(end <= start) return;
+
+    const left = ((start - dayStart) / (dayEnd - dayStart)) * 100;
+    const width = ((end - start) / (dayEnd - dayStart)) * 100;
+
+    const seg = document.createElement("div");
+    seg.className = "day-segment";
+    seg.style.left = left + "%";
+    seg.style.width = width + "%";
+ seg.style.background = `var(--${e.activity === "study" ? "study" : "waste"})`;
+
+const startTime = new Date(start).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+const endTime = new Date(e.end).toLocaleTimeString([], {
+  hour: 'numeric',
+  minute: '2-digit'
+});
+
+
+seg.dataset.tip = `${startTime} → ${endTime}`;
+
+
+
+    bar.appendChild(seg);
+  });
+
+
+
+
+  // running activity
+  if(current && current.date === selectedDate){
+    const start = Math.max(current.start, dayStart);
+    const now = Date.now();
+    const left = ((start - dayStart) / (dayEnd - dayStart)) * 100;
+    const width = Math.min(
+  ((now - start) / (dayEnd - dayStart)) * 100,
+  100
+);
+
+
+    const seg = document.createElement("div");
+    seg.className = "day-segment";
+    seg.style.left = left + "%";
+    seg.style.width = width + "%";
+    seg.style.background = `var(--${current.activity === "study" ? "study" : "waste"})`;
+
+const startTime = new Date(start).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+const endTime = new Date(now).toLocaleTimeString([], {
+  hour: 'numeric',
+  minute: '2-digit'
+});
+
+seg.dataset.tip = `${startTime} → ${endTime}`;
+
+
+
+    bar.appendChild(seg);
+  }
+}
+
+
+/* ---------- STATE ---------- */
+
+const ACTIVITIES=[
+  {key:"study",label:"Study (Peace)",color:"#00c2a8"},
+  {key:"timewaste",label:"Time Waste (Stress)",color:"#ff7a7a"}
+];
+
+let studyMilestoneTimer = null;
+let studyMilestoneTriggered = false;
+
+let current=null;
+let breakTimer = null;
+let breakEndTime = null;
+let breakInterval = null;
+let zoomStartHour = 0;
+let zoomEndHour = 24;
+let timer=null;
+let timelineMinimized=false;
+let weekly=false;
+let chart=null;
+let snoozeTimer = null;
+let snoozeAt = null;
+
+
+
+let selectedDate = null;
+
+
+/* ---------- DOM ---------- */
+const datePicker=document.getElementById("datePicker");
+const controls=document.getElementById("controls");
+const timeline=document.getElementById("timeline");
+const stats=document.getElementById("stats");
+
+if(!selectedDate){
+  selectedDate = datePicker.value || new Date().toISOString().slice(0,10);
+  datePicker.value = selectedDate;
+}
+
+/* ---------- UTIL ---------- */
+const label=k=>ACTIVITIES.find(a=>a.key===k).label;
+const color=k=>ACTIVITIES.find(a=>a.key===k).color;
+// Timeline & live entries — shows hours, minutes, seconds
+function dur(ms){
+  const totalSeconds = Math.floor(ms / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+
+  let str = "";
+  if(h > 0) str += h + "h ";
+  if(m > 0 || h > 0) str += m + "m ";
+  str += s + "s";
+  return str;
+}
+
+// Analytics — shows only hours and minutes
+function durHM(ms){
+  const totalMinutes = Math.floor(ms / 60000);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if(h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+function time(t){
+  return new Date(t).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+}
+
+function load(){
+  return JSON.parse(localStorage.getItem("entries")||"[]");
+}
+function save(e){
+  localStorage.setItem("entries",JSON.stringify(e));
+}
+
+/* ---------- CONTROLS ---------- */
+function renderControls(){
+  controls.innerHTML="";
+  if(current){
+    const b=document.createElement("button");
+    b.className="stop";
+    b.textContent=`Stop ${label(current.activity)} — ${dur(Date.now()-current.start)}`;
+    b.onclick=stopTracking;
+    controls.appendChild(b);
+  }else{
+    ACTIVITIES.forEach(a=>{
+      const b=document.createElement("button");
+      b.className=`activity ${a.key}`;
+      b.textContent=a.label;
+      b.onclick=()=>startTracking(a.key);
+      controls.appendChild(b);
+    });
+  }
+}
+function loadStats(){
+  return JSON.parse(localStorage.getItem("studyStats") || "{}");
+}
+
+function saveStats(stats){
+  localStorage.setItem("studyStats", JSON.stringify(stats));
+}
+
+
+
+function startTracking(activity){
+
+  if(timer) clearInterval(timer);
+  if(breakInterval) clearInterval(breakInterval);
+  clearTimeout(studyMilestoneTimer);
+  studyMilestoneTriggered = false;
+
+  current = {
+    id: crypto.randomUUID(),
+    activity,
+    start: Date.now(),
+    date: selectedDate
+  };
+
+  localStorage.setItem("current", JSON.stringify(current));
+
+  // stop alarm & allow music + video if study
+  if(activity === "study"){
+    stopAlarm();
+
+    if(musicPlayer.src){
+      musicPlayer.play().catch(()=>{});
+    }
+
+    // 🎥 VIDEO BACKGROUND START (CORRECT PLACE)
+    if(videoBg && videoBg.src){
+      videoBg.play().catch(()=>{});
+    }
+  }
+
+  // time-waste reminder
+  if(activity === "timewaste"){
+    const minutes = 10;
+    breakEndTime = Date.now() + minutes * 60000;
+
+    breakInterval = setInterval(()=>{
+      const left = breakEndTime - Date.now();
+      const el = document.getElementById("breakCountdown");
+
+      if(left <= 0){
+        clearInterval(breakInterval);
+        el.textContent = "";
+        playAlarm("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+        alert("⏰ Break over. Back to work.");
+        return;
+      }
+
+      const m = Math.floor(left / 60000);
+      const s = Math.floor((left % 60000) / 1000);
+      el.textContent = `Break ends in ${m}:${String(s).padStart(2,"0")}`;
+    }, 1000);
+  }
+
+  // 2h study milestone
+  if(activity === "study"){
+    studyMilestoneTimer = setTimeout(()=>{
+      if(current && current.activity === "study"){
+        alert("🎯 2 hours of focused study completed.");
+      }
+    }, 2 * 60 * 60 * 1000);
+  }
+
+  timer = setInterval(liveTick, 1000);
+  renderControls();
+}
+
+
+
+
+
+
+
+function stopTracking(){
+  if(!current) return;
+
+  const entries = load();
+
+  entries.push({
+    id: current.id || crypto.randomUUID(), // stable id
+    activity: current.activity,
+    start: current.start,
+    end: Date.now(),
+    date: current.date
+
+  });
+
+  save(entries);
+
+  current = null;
+  localStorage.removeItem("current");
+
+  clearInterval(timer);
+  timer = null;
+
+  if(breakInterval) clearInterval(breakInterval);
+  clearTimeout(studyMilestoneTimer);
+
+  document.getElementById("breakCountdown").textContent = "";
+  document.getElementById("studyMilestoneDisplay").textContent = "";
+
+  musicPlayer.pause();
+  musicPlayer.currentTime = 0;
+computeDailyHours();
+
+if(bgOnlyDuringStudy){
+  removeStudyBackground();
+}
+
+// 🔥 VIDEO BACKGROUND STOP
+if(videoOnlyDuringStudy && videoBg && videoBg.src){
+  videoBg.pause();
+}
+
+  renderAll();
+}
+
+
+function computeDailyHours(){
+  const stats = loadStats();
+  const entries = load();
+
+  const daily = {};
+
+  entries.forEach(e=>{
+    if(e.activity !== "study") return;
+    daily[e.date] = (daily[e.date] || 0) + (e.end - e.start);
+  });
+
+  for(const d in daily){
+    stats[d] = stats[d] || { hours: 0, questions: 0 };
+    stats[d].hours = +(daily[d] / 3600000).toFixed(2);
+  }
+
+  saveStats(stats);
+}
+function saveQuestions(){
+  const val = +document.getElementById("qsInput").value;
+  if(isNaN(val)) return;
+
+  const stats = loadStats();
+  stats[selectedDate] = stats[selectedDate] || { hours: 0, questions: 0 };
+  stats[selectedDate].questions = val;
+
+  saveStats(stats);
+  renderHeatmap();
+}
+
+
+
+/* ---------- TIMELINE ---------- */
+function renderTimeline(){
+  timeline.innerHTML="";
+
+  if(timelineMinimized){
+    if(current){
+      timeline.innerHTML=`
+        <div class="entry ${current.activity}">
+          <div>
+            <b>${label(current.activity)}</b><br>
+            ${time(current.start)} → now (${dur(Date.now()-current.start)})
+          </div>
+        </div>`;
+    }else{
+      timeline.innerHTML=`<div class="stat">No activity running</div>`;
+    }
+    return;
+  }
+
+  const entries=load().filter(e=>e.date===selectedDate);
+
+entries.forEach(e=>{
+  timeline.innerHTML+=`
+    <div class="entry ${e.activity}">
+      <div>
+        <b>${label(e.activity)}</b><br>
+        ${time(e.start)} → ${time(e.end)} (${dur(e.end-e.start)})
+      </div>
+      <div class="entry-buttons">
+        <button onclick="editEntry('${e.id}')">Edit</button>
+        <button class="delete" onclick="deleteEntry('${e.id}')">Delete</button>
+
+      </div>
+    </div>`;
+});
+
+
+  if(current){
+    timeline.innerHTML+=`
+      <div class="entry ${current.activity}">
+        <div>
+          <b>${label(current.activity)}</b><br>
+          ${time(current.start)} → now (${dur(Date.now()-current.start)})
+        </div>
+      </div>`;
+  }
+}
+
+/* ---------- EDIT / DELETE ---------- */
+window.editEntry = function(id){
+  const entries = load();
+  const e = entries.find(x => x.id === id);
+  if(!e) return;
+
+  let newStart = prompt(
+    "Start time (HH:MM AM/PM)",
+    new Date(e.start).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})
+  );
+  if(newStart == null) return;
+
+  let newEnd = prompt(
+    "End time (HH:MM AM/PM)",
+    new Date(e.end).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})
+  );
+  if(newEnd == null) return;
+
+  function parseTime(str){
+    const m = str.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if(!m) return null;
+    let h = +m[1];
+    const min = +m[2];
+    const ap = m[3].toUpperCase();
+    if(h === 12) h = 0;
+    if(ap === "PM") h += 12;
+    return {h, min};
+  }
+
+  const s = parseTime(newStart);
+  const en = parseTime(newEnd);
+  if(!s || !en){
+    alert("Invalid format");
+    return;
+  }
+
+  const [Y,M,D] = e.date.split("-").map(Number);
+  e.start = new Date(Y, M-1, D, s.h, s.min).getTime();
+  e.end   = new Date(Y, M-1, D, en.h, en.min).getTime();
+
+  save(entries);
+  renderAll();
+};
+
+
+/* ---------- EDIT CURRENT ---------- */
+function editCurrent(){
+  if(!current){
+    alert("No activity is running!");
+    return;
+  }
+
+  let input = prompt(
+    "New start time (HH:MM AM/PM)\nExample: 7:30 PM",
+    new Date(current.start).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})
+  );
+  if(input==null) return;
+
+  const match = input.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if(!match){
+    alert("Invalid format. Use HH:MM AM/PM");
+    return;
+  }
+
+  let h = +match[1];
+  const m = +match[2];
+  const ampm = match[3].toUpperCase();
+
+  if(h===12) h=0;
+  if(ampm==="PM") h+=12;
+
+  const d = current.date.split("-");
+  const newStart = new Date(d[0], d[1]-1, d[2], h, m).getTime();
+
+  if(newStart >= Date.now()){
+    alert("Start time cannot be in the future");
+    return;
+  }
+
+  current.start = newStart;
+  renderAll();
+}
+
+ 
+window.deleteEntry = function(id){
+  if(!confirm("Delete this entry?")) return;
+  const entries = load().filter(e => e.id !== id);
+  save(entries);
+  renderAll();
+};
+
+
+
+/* ---------- CHART ---------- */
+function weekRange(){
+  const d=new Date(selectedDate);
+  const start=new Date(d);
+  start.setDate(d.getDate()-d.getDay());
+  const end=new Date(start);
+  end.setDate(start.getDate()+6);
+  return [start.toISOString().slice(0,10),end.toISOString().slice(0,10)];
+}
+
+function updateChart(){
+  const totals={};
+  let entries=load();
+
+  if(weekly){
+    const [s,e]=weekRange();
+    entries=entries.filter(x=>x.date>=s&&x.date<=e);
+  }else{
+    entries=entries.filter(x=>x.date===selectedDate);
+  }
+
+  entries.forEach(e=>{
+    totals[e.activity]=(totals[e.activity]||0)+(e.end-e.start);
+  });
+
+  if(current){
+    totals[current.activity]=(totals[current.activity]||0)+(Date.now()-current.start);
+  }
+
+  chart.data.labels=Object.keys(totals).map(label);
+  chart.data.datasets[0].data=Object.values(totals).map(v=>Math.floor(v/1000));
+  chart.data.datasets[0].backgroundColor=Object.keys(totals).map(color);
+  chart.update();
+
+  stats.innerHTML="";
+  for(const k in totals){
+    stats.innerHTML+=`<div class="stat">${label(k)}: ${durHM(totals[k])}</div>`;
+
+  }
+}
+
+/* ---------- DAILY PROGRESS ---------- */
+function updateDailyProgress(){
+  // Calculate total study hours today
+  let entries = load().filter(e => e.date === selectedDate && e.activity === "study");
+  let totalMs = entries.reduce((sum,e) => sum + (e.end-e.start), 0);
+
+  // Include currently running study session
+  if(current && current.activity === "study"){
+    totalMs += (Date.now() - current.start);
+  }
+
+  const hours = totalMs / 3600000; // convert ms → hours
+
+  // Determine percentile
+  let percentile=0;
+  let color="#ff4d4d";
+  let text="Start crossing the percentile!";
+  if(hours >= 10){ percentile=100; text="99th percentile"; color="#00c2a8"; }
+  else if(hours >= 8.5){ percentile=95; text="95th percentile"; color="#00c2a8"; }
+  else if(hours >= 7){ percentile=80; text="80th percentile"; color="#00a0ff"; }
+  else if(hours >= 5){ percentile=50; text="50th percentile"; color="#ffa500"; }
+  else if(hours >= 3){ percentile=30; text="30th percentile"; color="#ff7a7a"; }
+  else { percentile = hours/3*30; text="Below 30th percentile"; color="#ff4d4d"; }
+
+  // Update bar
+  const fill = document.getElementById("progressFill");
+  const labelEl = document.getElementById("progressLabel");
+  fill.style.width = percentile + "%";
+  fill.style.background = color;
+  labelEl.textContent = `${hours.toFixed(1)} hrs — ${text}`;
+}
+
+/* ---------- LIVE ---------- */
+function liveTick(){
+
+ if(current) localStorage.setItem("current", JSON.stringify(current));
+
+
+  renderControls();
+updateDayLeftChart();
+  renderTimeline();
+  updateChart();
+  updateDailyProgress();
+  renderDayBar();
+  renderDayAxis();
+  loadSavedColors();
+  updateStudyMilestoneDisplay();
+}
+
+
+function renderAll(){
+  renderControls();
+  renderTimeline();
+  updateChart();
+updateDailyProgress();
+renderDayBar();
+renderDayAxis();
+  updateStudyMilestoneDisplay();
+renderHeatmap();
+
+
+}
+/* ---------- IMPORT / EXPORT ---------- */
+function exportData(){
+  const data = localStorage.getItem("entries") || "[]";
+  const blob = new Blob([data], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "timeline-data.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function autoExport(){
+  const entries = localStorage.getItem("entries");
+  if(!entries) return;
+
+  const now = new Date();
+  const ts = now.toISOString().replace(/[:.]/g,"-");
+  const blob = new Blob([entries], {type:"application/json"});
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `timeline-backup-${ts}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+
+function importData(file){
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+
+      // save entries
+      localStorage.setItem("entries", JSON.stringify(parsed));
+      migrateOldEntries();
+
+      // 🔥 CRITICAL FIX (THIS WAS MISSING)
+      localStorage.removeItem("studyStats"); // wipe stale stats
+      computeDailyHours();                   // recompute from entries
+
+      // jump to a date that actually exists
+      const dates = parsed.map(e => e.date).sort();
+      selectedDate = dates[dates.length - 1];
+      datePicker.value = selectedDate;
+
+      // reset state
+      current = null;
+      if(timer){ clearInterval(timer); timer=null; }
+
+      renderAll();
+      alert("Data imported successfully");
+    }catch{
+      alert("Invalid file");
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+
+document.addEventListener("click", unlockAudio, { once:true });
+
+function unlockAudio(){
+  const audio = document.getElementById("alarmSound");
+  audio.src = "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg";
+  audio.volume = 1;
+  audio.play().then(()=>audio.pause()).catch(()=>{});
+}
+
+const bgUpload = document.getElementById("bgUpload");
+let bgOnlyDuringStudy = true; // feature toggle (we'll add button later)
+let tempBgURL = null; // stores uploaded image in memory
+
+bgUpload.onchange = e => {
+  const file = e.target.files[0];
+  if(!file) return;
+
+  if(tempBgURL) URL.revokeObjectURL(tempBgURL); // clean up old object
+
+  tempBgURL = URL.createObjectURL(file);
+
+  if(!bgOnlyDuringStudy || isStudyRunning()){
+    document.body.style.backgroundImage = `url(${tempBgURL})`;
+    document.body.classList.add("custom-bg");
+  }
+};
+
+
+
+function clearBackground(){
+  if(tempBgURL) URL.revokeObjectURL(tempBgURL);
+  tempBgURL = null;
+  document.body.style.backgroundImage = "";
+  document.body.classList.remove("custom-bg");
+}
+
+/* ===== VIDEO BACKGROUND ===== */
+
+const videoBg = document.getElementById("videoBg");
+const videoBgUpload = document.getElementById("videoBgUpload");
+const videoBgVolume = document.getElementById("videoBgVolume");
+const videoBgOpacity = document.getElementById("videoBgOpacity");
+const videoBgBlur = document.getElementById("videoBgBlur");
+
+let videoBgURL = null;
+let videoOnlyDuringStudy = true;
+
+// upload video
+videoBgUpload.onchange = e => {
+  const file = e.target.files[0];
+  if(!file) return;
+
+  if(videoBgURL) URL.revokeObjectURL(videoBgURL);
+  videoBgURL = URL.createObjectURL(file);
+
+  videoBg.src = videoBgURL;
+  videoBg.loop = true;
+  videoBg.volume = videoBgVolume.value;
+
+  document.body.classList.add("video-bg");
+
+  if(!videoOnlyDuringStudy || isStudyRunning()){
+    videoBg.play().catch(()=>{});
+  }
+};
+
+// volume
+videoBgVolume.oninput = () => {
+  videoBg.volume = videoBgVolume.value;
+};
+
+// opacity
+videoBgOpacity.oninput = () => {
+  document.documentElement.style.setProperty(
+    "--video-opacity",
+    videoBgOpacity.value
+  );
+};
+
+// blur
+videoBgBlur.oninput = () => {
+  document.documentElement.style.setProperty(
+    "--video-blur",
+    videoBgBlur.value + "px"
+  );
+};
+
+// stop + cleanup
+function clearVideoBackground(){
+  if(videoBgURL) URL.revokeObjectURL(videoBgURL);
+  videoBg.pause();
+  videoBg.src = "";
+  videoBgURL = null;
+  document.body.classList.remove("video-bg");
+}
+
+
+/* ---------- INIT ---------- */
+
+
+
+
+
+setInterval(autoExport, 60 * 60 * 1000);
+
+
+
+
+datePicker.value=selectedDate;
+datePicker.onchange=()=>{selectedDate=datePicker.value;renderAll();};
+
+document.getElementById("darkToggle").onclick=()=>{
+  document.body.classList.toggle("dark");
+};
+document.getElementById("headerToggle").onclick=()=>{
+  document.querySelector("header").classList.toggle("black");
+};
+document.getElementById("timelineToggle").onclick=()=>{
+  timelineMinimized=!timelineMinimized;
+  document.getElementById("timelineToggle").textContent=
+    timelineMinimized?"Expand":"Minimize";
+  renderTimeline();
+};
+document.getElementById("viewToggle").onclick=()=>{
+  weekly=!weekly;
+  document.getElementById("viewToggle").textContent=
+    weekly?"Daily View":"Weekly View";
+  updateChart();
+};
+document.getElementById("editCurrentBtn").onclick = editCurrent;
+document.getElementById("exportBtn").onclick = exportData;
+
+document.getElementById("importBtn").onclick = ()=>{
+  document.getElementById("importFile").click();
+};
+
+document.getElementById("importFile").onchange = e=>{
+  if(e.target.files.length) importData(e.target.files[0]);
+};
+
+
+
+
+
+chart=new Chart(document.getElementById("pieChart"),{
+  type:"pie",
+  data:{labels:[],datasets:[{data:[],backgroundColor:[]}]},
+  options:{animation:false,plugins:{legend:{position:"bottom"}}}
+});
+
+const dayLeftChart = new Chart(
+  document.getElementById("dayLeftChartCanvas"),
+  {
+    type: "pie",
+    data: {
+      labels: ["Used", "Remaining", "Lost"],
+      datasets: [{
+        data: [0, 0, 0],
+        backgroundColor: ["#ff7a7a", "#00c2a8", "#999"]
+      }]
+    },
+    options: {
+      plugins: { legend: { position: "bottom" } },
+      animation: false
+    }
+  }
+);
+
+
+migrateOldEntries();   // ✅ MUST RUN FIRST
+renderAll();
+
+const studyColorInput = document.getElementById("studyColor");
+const timeWasteColorInput = document.getElementById("timeWasteColor");
+
+function applyColorInput(inputEl, activityKey, cssVar){
+  // Load saved color from localStorage first
+  const savedColor = localStorage.getItem("color_" + activityKey);
+  if(savedColor){
+    inputEl.value = savedColor;
+    document.documentElement.style.setProperty(cssVar, savedColor);
+    const act = ACTIVITIES.find(a=>a.key===activityKey);
+    if(act) act.color = savedColor;
+  }
+
+  // On change, save to localStorage
+  inputEl.oninput = () => {
+    let val = inputEl.value.trim();
+    if(/^#([0-9A-Fa-f]{6})$/.test(val)){ // valid hex
+      const act = ACTIVITIES.find(a=>a.key===activityKey);
+      if(act) act.color = val;
+      document.documentElement.style.setProperty(cssVar, val);
+      localStorage.setItem("color_" + activityKey, val); // save for future
+      renderAll();
+    }
+  };
+}
+
+applyColorInput(studyColorInput, "study", "--study");
+applyColorInput(timeWasteColorInput, "timewaste", "--waste");
+const bgPicker = document.getElementById("bgColorPicker");
+const cardPicker = document.getElementById("cardColorPicker");
+
+/* ===== TILE IMAGE CODE (MUST BE HERE) ===== */
+
+const cardImagePicker = document.getElementById("cardImagePicker");
+
+// restore saved tile image
+const savedCardImg = localStorage.getItem("card_img");
+if(savedCardImg){
+  document.querySelectorAll(".card").forEach(c=>{
+    c.style.backgroundImage = `url(${savedCardImg})`;
+  });
+}
+
+cardImagePicker.onchange = e => {
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const url = URL.createObjectURL(file);
+
+  document.querySelectorAll(".card").forEach(c=>{
+    c.style.backgroundImage = `url(${url})`;
+  });
+
+  localStorage.setItem("card_img", url);
+};
+
+function clearCardImage(){
+  document.querySelectorAll(".card").forEach(c=>{
+    c.style.backgroundImage = "";
+  });
+  localStorage.removeItem("card_img");
+}
+// load saved colors
+const savedBg = localStorage.getItem("color_bg");
+const savedCard = localStorage.getItem("color_card");
+
+if(savedBg){
+  bgPicker.value = savedBg;
+  document.documentElement.style.setProperty("--bg", savedBg);
+}
+
+if(savedCard){
+  cardPicker.value = savedCard;
+  document.documentElement.style.setProperty("--card", savedCard);
+}
+
+// change background color
+bgPicker.oninput = () => {
+  const val = bgPicker.value;
+  document.documentElement.style.setProperty("--bg", val);
+  localStorage.setItem("color_bg", val);
+};
+
+// change tile/card color
+cardPicker.oninput = () => {
+
+
+// remove tile image
+function clearCardImage(){
+  document.querySelectorAll(".card").forEach(c=>{
+    c.style.backgroundImage = "";
+  });
+  localStorage.removeItem("card_img");
+}
+  const val = cardPicker.value;
+  document.documentElement.style.setProperty("--card", val);
+  localStorage.setItem("color_card", val);
+};
+/* ---------- FOCUS MIRROR ---------- */
+let mirrorVisible = true;
+
+function toggleMirror(){
+  mirrorVisible = !mirrorVisible;
+  document.getElementById("mirrorFrame").style.display =
+    mirrorVisible ? "block" : "none";
+}
+
+const mirrorInput = document.getElementById("mirrorUrl");
+const mirrorFrame = document.getElementById("mirrorFrame");
+mirrorInput.addEventListener("change", () => {
+  let url = mirrorInput.value.trim();
+  if(!url) return;
+
+  if(!url.startsWith("http")){
+    url = "https://" + url;
+  }
+
+  // ⭐ AUTO-CONVERT SPOTIFY LINK TO EMBED
+  if(url.includes("open.spotify.com") && !url.includes("/embed/")){
+    url = url.replace("open.spotify.com/", "open.spotify.com/embed/");
+  }
+
+  mirrorFrame.src = url;
+  localStorage.setItem("mirror_url", url);
+});
+
+// restore saved mirror
+const savedMirror = localStorage.getItem("mirror_url");
+if(savedMirror){
+  let url = savedMirror;
+
+  if(url.includes("open.spotify.com") && !url.includes("/embed/")){
+    url = url.replace("open.spotify.com/", "open.spotify.com/embed/");
+  }
+
+  mirrorInput.value = savedMirror;
+  mirrorFrame.src = url;
+}
+
+// ---------- MIRROR RESIZE ----------
+const resizer = document.getElementById("mirrorResizer");
+let isResizing = false;
+let startY = 0;
+let startHeight = 0;
+
+resizer.addEventListener("mousedown", e => {
+  mirrorFrame.style.transition = "none";
+
+
+  isResizing = true;
+  startY = e.clientY;
+  startHeight = mirrorFrame.offsetHeight;
+  document.body.style.cursor = "ns-resize";
+});
+
+document.addEventListener("mousemove", e => {
+  if (!isResizing) return;
+  const dy = e.clientY - startY;
+  mirrorFrame.style.height = startHeight + dy + "px";
+});
+
+document.addEventListener("mouseup", () => {
+  mirrorFrame.style.transition = "";
+  isResizing = false;
+  document.body.style.cursor = "default";
+});
+
+
+function makeDraggable(el, storageKey, defaultPos){
+  let isDown = false, offsetX = 0, offsetY = 0;
+
+  // restore saved position
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if(saved){
+    el.style.top = saved.top;
+    el.style.left = saved.left;
+    el.style.right = "auto";
+  } else {
+    el.style.top = defaultPos.top;
+    el.style.right = defaultPos.right;
+  }
+
+el.addEventListener("mousedown", e=>{
+  if (e.target.tagName === "INPUT" || e.target.tagName === "AUDIO" || e.target.tagName === "BUTTON") return;
+  isDown = true;
+  offsetX = e.clientX - el.offsetLeft;
+  offsetY = e.clientY - el.offsetTop;
+  el.style.cursor = "grabbing";
+
+  el.classList.add("panel-dragging");   // ✅ ADD
+});
+
+
+  document.addEventListener("mousemove", e=>{
+    if(!isDown) return;
+    el.style.left = (e.clientX - offsetX) + "px";
+    el.style.top  = (e.clientY - offsetY) + "px";
+    el.style.right = "auto";
+  });
+
+document.addEventListener("mouseup", ()=>{
+  if(!isDown) return;
+  isDown = false;
+  el.style.cursor = "grab";
+
+  el.classList.remove("panel-dragging"); // ✅ ADD
+
+  localStorage.setItem(storageKey, JSON.stringify({
+    top: el.style.top,
+    left: el.style.left
+  }));
+});
+
+}
+makeDraggable(
+  document.getElementById("musicPanel"),
+  "music_panel_pos",
+  { top: "260px", right: "-180px" }
+);
+
+makeDraggable(
+  document.getElementById("colorPanel"),
+  "color_panel_pos",
+  { top: "100px", right: "-180px" }
+);
+
+const savedCurrent = localStorage.getItem("current");
+if(savedCurrent){
+  const parsed = JSON.parse(savedCurrent);
+
+  // only restore if start exists and makes sense
+  if(parsed.start && parsed.date){
+    current = parsed;
+    timer = setInterval(liveTick, 1000);
+  } else {
+    localStorage.removeItem("current");
+  }
+}
+
+scheduleSnooze();
+
+document.addEventListener("click", () => {
+  if(videoBg){
+    videoBg.muted = false;
+  }
+}, { once: true });
+
+const toggleBtn = document.getElementById("colorToggle");
+const panel = document.getElementById("colorPanel");
+
+toggleBtn.onclick = () => {
+  panel.classList.toggle("open");
+};
+
+</script>
+
+
+
+</body>
+</html>
