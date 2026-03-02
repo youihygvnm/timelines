@@ -442,6 +442,48 @@ body.dashboard .card{
 #colorPanel.open{
   right:20px;
 }
+/* ===== HEATMAP TOGGLE SWITCH ===== */
+.switch{
+  position:relative;
+  display:inline-block;
+  width:36px;
+  height:20px;
+}
+
+.switch input{
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.slider{
+  position:absolute;
+  cursor:pointer;
+  inset:0;
+  background:#ccc;
+  border-radius:20px;
+  transition:.2s;
+}
+
+.slider:before{
+  content:"";
+  position:absolute;
+  height:14px;
+  width:14px;
+  left:3px;
+  bottom:3px;
+  background:white;
+  border-radius:50%;
+  transition:.2s;
+}
+
+.switch input:checked + .slider{
+  background:#4CAF50;
+}
+
+.switch input:checked + .slider:before{
+  transform:translateX(16px);
+}
 </style>
 </style>
 </head>
@@ -664,6 +706,12 @@ body.dashboard .card{
   <h2>Day Overview</h2>
 
   <h3>Study Activity</h3>
+
+<label class="switch">
+  <input type="checkbox" id="heatTextToggle">
+  <span class="slider"></span>
+</label>
+<span style="font-size:12px;margin-left:6px;">Show time</span>
   <div id="heatmap"></div>
 
 
@@ -1021,6 +1069,19 @@ function renderHeatmap(){
     const box = document.createElement("div");
     box.className = "day-box";
     box.style.background = heatColor(hours);
+const showText = localStorage.getItem("heat_text") === "1";
+
+if(showText && hours > 0){
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+
+  box.textContent = h ? `${h}h ${m}m` : `${m}m`;
+  box.style.fontSize = "10px";
+  box.style.color = "#fff";
+  box.style.display = "flex";
+  box.style.alignItems = "center";
+  box.style.justifyContent = "center";
+}
     const qs = stats[key]?.questions || 0;
 box.title = `${key}\nStudy: ${hours}h\nQuestions: ${qs}`;
 
@@ -2079,7 +2140,17 @@ const panel = document.getElementById("colorPanel");
 toggleBtn.onclick = () => {
   panel.classList.toggle("open");
 };
+const heatToggle = document.getElementById("heatTextToggle");
 
+if(heatToggle){
+  const saved = localStorage.getItem("heat_text") === "1";
+  heatToggle.checked = saved;
+
+  heatToggle.onchange = () => {
+    localStorage.setItem("heat_text", heatToggle.checked ? "1" : "0");
+    renderHeatmap();
+  };
+}
 
 /* ===== PUT FUNCTION HERE ===== */
 
