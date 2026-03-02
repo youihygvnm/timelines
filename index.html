@@ -2004,15 +2004,21 @@ mirrorInput.addEventListener("change", () => {
     url = "https://" + url;
   }
 
-  // ⭐ AUTO-CONVERT SPOTIFY LINK TO EMBED
-  if(url.includes("open.spotify.com") && !url.includes("/embed/")){
-    url = url.replace("open.spotify.com/", "open.spotify.com/embed/");
+  // 🔥 AUTO CONVERT YOUTUBE LINKS
+  if(url.includes("youtube.com/watch")){
+    const id = url.split("v=")[1]?.split("&")[0];
+    if(id) url = `https://www.youtube.com/embed/${id}`;
+  }
+
+  // 🔥 SHORT YT LINKS
+  if(url.includes("youtu.be/")){
+    const id = url.split("youtu.be/")[1]?.split("?")[0];
+    if(id) url = `https://www.youtube.com/embed/${id}`;
   }
 
   mirrorFrame.src = url;
   localStorage.setItem("mirror_url", url);
 });
-
 // restore saved mirror
 const savedMirror = localStorage.getItem("mirror_url");
 if(savedMirror){
